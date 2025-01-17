@@ -1,8 +1,14 @@
+export interface CreateAffiliateLink {
+  name: string
+  url: string
+}
+
 export interface AffiliateLink {
   id: string
   name: string
   url: string
   trackingId: string
+  uniqueCode: string
   active: boolean
   clicks: number
   createdAt: Date

@@ -1,25 +1,36 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { nanoid } from 'nanoid';
+import { cookies } from 'next/headers';
+import { jwtVerify } from 'jose';
+
+interface CreateLinkRequest {
+  name: string;
+  url: string;
+}
 
 export async function POST(request: Request) {
   try {
-    const { affiliateId, url, name } = await request.json();
-
-    // Verify affiliate exists
-    const affiliate = await prisma.affiliate.findUnique({
-      where: { id: affiliateId },
-    });
-
-    if (!affiliate) {
+    const cookieStore = cookies();
+    const token = cookieStore.get('token');
+    
+    if (!token) {
       return NextResponse.json(
-        { error: 'Affiliate not found' },
-        { status: 404 }
+        { message: 'Not authenticated' },
+        { status: 401 }
       );
     }
 
-    // Create unique tracking ID
-    const trackingId = nanoid(10);
+    const { payload } = await jwtVerify(
+      token.value,
+      new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key')
+    );
+
+    const { name, url } = await request.json() as CreateLinkRequest;
+    const affiliateId = payload.id as string;
+
+    const trackingId = generateTrackingId();
+    const uniqueCode = generateUniqueCode();
 
     // Create affiliate link
     const link = await prisma.affiliateLink.create({
@@ -27,19 +38,30 @@ export async function POST(request: Request) {
         name,
         targetUrl: url,
         trackingId,
+        uniqueCode,
         active: true,
-        affiliateId,
-      },
+        affiliate: {
+          connect: { id: affiliateId }
+        }
+      }
     });
 
     return NextResponse.json(link);
   } catch (error) {
-    console.error('Failed to create affiliate link:', error);
+    console.error('Error creating affiliate link:', error);
     return NextResponse.json(
-      { error: 'Failed to create affiliate link' },
+      { message: 'Failed to create affiliate link' },
       { status: 500 }
     );
   }
+}
+
+function generateTrackingId(): string {
+  return nanoid(8);
+}
+
+function generateUniqueCode(): string {
+  return nanoid(6).toLowerCase();
 }
 
 export async function GET(request: Request) {
