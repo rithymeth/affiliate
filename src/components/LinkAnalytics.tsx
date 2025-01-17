@@ -42,22 +42,22 @@ export default function LinkAnalytics({ linkId, className = '' }: LinkAnalyticsP
   const [error, setError] = useState('')
 
   useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch(`/api/affiliate/links/${linkId}/stats?timeframe=${timeframe}`)
+        if (!response.ok) throw new Error('Failed to fetch stats')
+        const data = await response.json()
+        setStats(data)
+      } catch (error) {
+        console.error('Error fetching stats:', error)
+        setError('Failed to load analytics data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchStats()
   }, [linkId, timeframe])
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`/api/affiliate/links/${linkId}/stats?timeframe=${timeframe}`)
-      if (!response.ok) throw new Error('Failed to fetch stats')
-      const data = await response.json()
-      setStats(data)
-    } catch (error) {
-      console.error('Error fetching stats:', error)
-      setError('Failed to load analytics data')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) return <div>Loading...</div>
   if (error) return <div className="text-red-500">{error}</div>

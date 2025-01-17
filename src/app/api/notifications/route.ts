@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
-import type { Notification } from '@/types'
 
 export async function GET() {
   try {
@@ -22,17 +21,18 @@ export async function GET() {
     )
 
     const notifications = await prisma.notification.findMany({
-      where: { 
+      where: {
         affiliateId: payload.id as string,
         read: false
       },
-      orderBy: { createdAt: 'desc' },
-      take: 5
+      orderBy: {
+        createdAt: 'desc'
+      }
     })
 
     return NextResponse.json(notifications)
   } catch (error) {
-    console.error('Notifications error:', error)
+    console.error('Error fetching notifications:', error)
     return NextResponse.json(
       { message: 'Failed to fetch notifications' },
       { status: 500 }
@@ -69,7 +69,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(notification)
   } catch (error) {
-    console.error('Update notification error:', error)
+    console.error('Error updating notification:', error)
     return NextResponse.json(
       { message: 'Failed to update notification' },
       { status: 500 }
