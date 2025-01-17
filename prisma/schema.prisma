@@ -62,12 +62,15 @@ model AffiliateLink {
   name        String
   targetUrl   String
   trackingId  String   @unique
+  uniqueCode  String   @unique
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
   affiliateId String
   clicks      AffiliateClick[]
+
+  @@index([affiliateId])
 }
 
 model AffiliateEarning {

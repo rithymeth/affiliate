@@ -3,6 +3,8 @@ export interface AffiliateLink {
   name: string
   url: string
   trackingId: string
+  active: boolean
+  clicks: number
   createdAt: Date
 }
 
