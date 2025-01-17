@@ -42,4 +42,19 @@ export interface Notification {
   message: string
   type: string
   createdAt: string
+}
+
+export interface DailyStats {
+  date: string
+  clicks: number
+  earnings: number
+  conversions: number
+}
+
+export interface AffiliateStats {
+  totalClicks: number
+  totalEarnings: number
+  conversions: number
+  activeLinks: number
+  dailyStats: DailyStats[]
 } 
