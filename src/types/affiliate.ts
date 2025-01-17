@@ -57,4 +57,19 @@ export interface AffiliateStats {
   conversions: number
   activeLinks: number
   dailyStats: DailyStats[]
+}
+
+export interface AffiliateVisit {
+  id: string
+  timestamp: Date
+  ipAddress: string
+  userAgent: string
+  referrer: string
+  duration: number
+  pageViews: number
+}
+
+export interface TrackingResponse {
+  success: boolean
+  clickId: string
 } 
