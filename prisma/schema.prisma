@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Affiliate {
+  id         String   @id @default(cuid())
+  name       String
+  email      String   @unique
+  password   String
+  website    String?
+  commission Float    @default(10)
+  status     String   @default("pending") // pending, active, suspended
+  paymentMethod String    @default("paypal")
+  emailNotifications Boolean   @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  links    AffiliateLink[]
+  clicks   AffiliateClick[]
+  earnings AffiliateEarning[]
+  payouts  AffiliatePayout[]
+
+  trackingClicks      Click[]        @relation("trackingClicks")
+  trackingConversions Conversion[]   @relation("trackingConversions")
+  trackingLinks       Link[]         @relation("trackingLinks")
+
+  notifications      Notification[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model AffiliateClick {
+  id          String         @id @default(cuid())
+  affiliateId String
+  linkId      String? // Optional link reference
+  timestamp   DateTime       @default(now())
+  ipAddress   String
+  userAgent   String
+  referrer    String
+  converted   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  affiliate   Affiliate      @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  link        AffiliateLink? @relation(fields: [linkId], references: [id])
+
+  @@index([affiliateId])
+  @@index([linkId])
+  @@index([timestamp])
+}
+
+model AffiliateLink {
+  id          String   @id @default(cuid())
+  name        String
+  targetUrl   String
+  trackingId  String   @unique
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  affiliateId String
+  clicks      AffiliateClick[]
+}
+
+model AffiliateEarning {
+  id          String           @id @default(cuid())
+  affiliateId String
+  amount      Float
+  status      String           @default("pending") // pending, approved, paid
+  source      String // click, sale, lead
+  referenceId String? // external reference
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  affiliate   Affiliate        @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  payout      AffiliatePayout? @relation(fields: [payoutId], references: [id])
+  payoutId    String?
+
+  @@index([affiliateId])
+  @@index([status])
+}
+
+model AffiliatePayout {
+  id          String             @id @default(cuid())
+  affiliateId String
+  amount      Float
+  status      String             @default("pending") // pending, processing, completed, failed
+  method      String // bank_transfer, paypal, etc.
+  reference   String? // payment reference
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  affiliate   Affiliate          @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  earnings    AffiliateEarning[]
+
+  @@index([affiliateId])
+  @@index([status])
+}
+
+model Click {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  affiliateId String
+  linkId      String
+  affiliate   Affiliate @relation("trackingClicks", fields: [affiliateId], references: [id])
+  link        Link      @relation(fields: [linkId], references: [id])
+
+  @@index([affiliateId])
+  @@index([linkId])
+}
+
+model Conversion {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  amount      Float
+  affiliateId String
+  linkId      String
+  affiliate   Affiliate @relation("trackingConversions", fields: [affiliateId], references: [id])
+  link        Link      @relation(fields: [linkId], references: [id])
+
+  @@index([affiliateId])
+  @@index([linkId])
+}
+
+model Link {
+  id          String      @id @default(cuid())
+  createdAt   DateTime    @default(now())
+  url         String
+  affiliateId String
+  affiliate   Affiliate   @relation("trackingLinks", fields: [affiliateId], references: [id])
+  clicks      Click[]
+  conversions Conversion[]
+
+  @@index([affiliateId])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  affiliateId String
+  message     String
+  type        String    // success, warning, error, info
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId])
+  @@index([read])
+}
