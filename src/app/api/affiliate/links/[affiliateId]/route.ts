@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { nanoid } from 'nanoid';
 
 export async function GET(
   request: Request,
@@ -54,11 +55,15 @@ export async function POST(
     const affiliateId = params.affiliateId;
     const { name, targetUrl } = await request.json();
 
+    const trackingId = generateTrackingId();
+    const uniqueCode = generateUniqueCode();
+
     const link = await prisma.affiliateLink.create({
       data: {
         name,
         targetUrl,
-        trackingId: generateTrackingId(),
+        trackingId,
+        uniqueCode,
         affiliateId
       }
     });
@@ -74,6 +79,9 @@ export async function POST(
 }
 
 function generateTrackingId(): string {
-  // Generate a random string of 8 characters
-  return Math.random().toString(36).substring(2, 10);
+  return nanoid(8);
+}
+
+function generateUniqueCode(): string {
+  return nanoid(6).toLowerCase();
 } 
