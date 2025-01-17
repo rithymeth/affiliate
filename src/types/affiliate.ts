@@ -72,4 +72,33 @@ export interface AffiliateVisit {
 export interface TrackingResponse {
   success: boolean
   clickId: string
+}
+
+export interface CreateAffiliateRequest {
+  name: string
+  email: string
+  password: string
+  website?: string
+  commission?: number
+}
+
+export interface Affiliate {
+  id: string
+  name: string
+  email: string
+  website?: string
+  commission: number
+  status: string
+  paymentMethod: string
+  emailNotifications: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface AffiliateWithStats extends Omit<Affiliate, 'password'> {
+  _count: {
+    links: number
+    clicks: number
+    earnings: number
+  }
 } 
