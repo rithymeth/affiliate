@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
+import type { Notification } from '@/types'
 
 export async function GET() {
   try {
@@ -39,7 +40,6 @@ export async function GET() {
   }
 }
 
-// Mark notification as read
 export async function PUT(request: Request) {
   try {
     const cookieStore = cookies()

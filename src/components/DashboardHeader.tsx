@@ -13,13 +13,7 @@ import {
   ArrowRightOnRectangleIcon,
   HomeIcon
 } from '@heroicons/react/24/outline'
-
-interface Notification {
-  id: string
-  message: string
-  type: string
-  createdAt: string
-}
+import type { Notification } from '@/types'
 
 export default function DashboardHeader({ 
   onMenuClick,
