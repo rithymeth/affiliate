@@ -1,88 +1,92 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-interface DailyStats {
-  date: Date;
-  clicks: number;
-  earnings: number;
-  conversions: number;
-}
-
 export async function GET(
   request: Request,
   { params }: { params: { affiliateId: string } }
 ) {
   try {
-    const affiliateId = params.affiliateId;
+    const { affiliateId } = params;
 
-    // Get total clicks
+    // Get basic stats
     const totalClicks = await prisma.affiliateClick.count({
-      where: { affiliateId }
-    });
+      where: { affiliateId },
+    }) || 0;
 
-    // Get total earnings
     const earnings = await prisma.affiliateEarning.aggregate({
       where: { affiliateId },
-      _sum: { amount: true }
+      _sum: { amount: true },
     });
 
-    // Get total conversions
     const conversions = await prisma.affiliateClick.count({
-      where: {
+      where: { 
         affiliateId,
-        converted: true
-      }
-    });
+        converted: true,
+      },
+    }) || 0;
 
-    // Get active links count
     const activeLinks = await prisma.affiliateLink.count({
       where: {
         affiliateId,
-        active: true
-      }
-    });
+        active: true,
+      },
+    }) || 0;
 
     // Get daily stats for the last 30 days
-    const dailyStats = await prisma.$queryRaw<DailyStats[]>`
-      WITH days AS (
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const dailyStats = await prisma.$queryRaw`
+      WITH dates AS (
         SELECT generate_series(
-          date_trunc('day', current_date - interval '29 days'),
-          date_trunc('day', current_date),
-          interval '1 day'
+          date_trunc('day', now() - interval '30 days'),
+          date_trunc('day', now()),
+          '1 day'::interval
         )::date as date
+      ),
+      daily_clicks AS (
+        SELECT 
+          date_trunc('day', timestamp)::date as date,
+          COUNT(*) as clicks
+        FROM "AffiliateClick"
+        WHERE "affiliateId" = ${affiliateId}
+          AND timestamp >= ${thirtyDaysAgo}
+        GROUP BY 1
+      ),
+      daily_earnings AS (
+        SELECT 
+          date_trunc('day', "createdAt")::date as date,
+          SUM(amount) as earnings
+        FROM "AffiliateEarning"
+        WHERE "affiliateId" = ${affiliateId}
+          AND "createdAt" >= ${thirtyDaysAgo}
+        GROUP BY 1
       )
       SELECT 
-        days.date,
-        COUNT(DISTINCT c.id) as clicks,
-        COALESCE(SUM(e.amount), 0) as earnings,
-        COUNT(DISTINCT CASE WHEN c.converted THEN c.id END) as conversions
-      FROM days
-      LEFT JOIN "AffiliateClick" c ON 
-        date_trunc('day', c."timestamp") = days.date
-        AND c."affiliateId" = ${affiliateId}
-      LEFT JOIN "AffiliateEarning" e ON 
-        date_trunc('day', e."createdAt") = days.date
-        AND e."affiliateId" = ${affiliateId}
-      GROUP BY days.date
-      ORDER BY days.date ASC
+        dates.date,
+        COALESCE(daily_clicks.clicks, 0) as clicks,
+        COALESCE(daily_earnings.earnings, 0) as earnings
+      FROM dates
+      LEFT JOIN daily_clicks ON dates.date = daily_clicks.date
+      LEFT JOIN daily_earnings ON dates.date = daily_earnings.date
+      ORDER BY dates.date ASC
     `;
 
     return NextResponse.json({
       totalClicks,
-      totalEarnings: Number(earnings._sum.amount || 0),
+      totalEarnings: Number(earnings._sum?.amount || 0),
       conversions,
       activeLinks,
-      dailyStats: dailyStats.map((stat) => ({
+      dailyStats: dailyStats.map((stat: any) => ({
         date: stat.date.toISOString(),
         clicks: Number(stat.clicks),
         earnings: Number(stat.earnings),
-        conversions: Number(stat.conversions)
-      }))
+      })),
     });
   } catch (error) {
-    console.error('Error fetching affiliate stats:', error);
+    console.error('Stats error:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch affiliate stats' },
+      { error: 'Failed to fetch affiliate stats' },
       { status: 500 }
     );
   }

@@ -33,7 +33,6 @@ model Affiliate {
   trackingLinks       Link[]         @relation("trackingLinks")
 
   notifications      Notification[]
-  visits             AffiliateVisit[]
 
   @@index([email])
   @@index([status])
@@ -63,15 +62,12 @@ model AffiliateLink {
   name        String
   targetUrl   String
   trackingId  String   @unique
-  uniqueCode  String   @unique
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
   affiliateId String
   clicks      AffiliateClick[]
-
-  @@index([affiliateId])
 }
 
 model AffiliateEarning {
@@ -155,21 +151,4 @@ model Notification {
 
   @@index([affiliateId])
   @@index([read])
-}
-
-model AffiliateVisit {
-  id          String    @id @default(cuid())
-  affiliateId String
-  timestamp   DateTime  @default(now())
-  ipAddress   String
-  userAgent   String
-  referrer    String
-  duration    Int       @default(0)  // Duration in seconds
-  pageViews   Int      @default(1)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-
-  @@index([affiliateId])
-  @@index([timestamp])
 }

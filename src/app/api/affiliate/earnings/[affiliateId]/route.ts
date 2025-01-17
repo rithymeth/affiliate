@@ -1,24 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-interface MonthlyStats {
-  month: string;
-  earnings: number;
-  clicks: number;
-  conversions: number;
-}
-
 export async function GET(
   request: Request,
   { params }: { params: { affiliateId: string } }
 ) {
   try {
-    const affiliateId = params.affiliateId;
+    const { affiliateId } = params;
 
     // Get total earnings
     const totalEarnings = await prisma.affiliateEarning.aggregate({
       where: { affiliateId },
-      _sum: { amount: true }
+      _sum: { amount: true },
     });
 
     // Get pending earnings
@@ -27,44 +20,60 @@ export async function GET(
         affiliateId,
         status: 'pending'
       },
-      _sum: { amount: true }
+      _sum: { amount: true },
     });
 
     // Get last payout
     const lastPayout = await prisma.affiliatePayout.findFirst({
-      where: { affiliateId },
-      orderBy: { createdAt: 'desc' }
+      where: { 
+        affiliateId,
+        status: 'completed'
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { amount: true },
     });
 
-    // Get monthly stats
-    const monthlyStats = await prisma.$queryRaw<MonthlyStats[]>`
+    // Get monthly earnings and clicks
+    const monthlyStats = await prisma.$queryRaw`
+      WITH months AS (
+        SELECT generate_series(
+          date_trunc('month', current_date - interval '11 months'),
+          date_trunc('month', current_date),
+          interval '1 month'
+        ) as month
+      )
       SELECT 
-        TO_CHAR(DATE_TRUNC('month', "createdAt"), 'YYYY-MM') as month,
-        SUM(amount) as earnings,
-        COUNT(DISTINCT "affiliateId") as clicks,
-        COUNT(CASE WHEN status = 'approved' THEN 1 END) as conversions
-      FROM "AffiliateEarning"
-      WHERE "affiliateId" = ${affiliateId}
-      GROUP BY DATE_TRUNC('month', "createdAt")
-      ORDER BY month DESC
-      LIMIT 12
+        to_char(months.month, 'Mon YYYY') as month,
+        COALESCE(SUM(e.amount)::float, 0) as earnings,
+        COALESCE(COUNT(DISTINCT c.id)::integer, 0) as clicks
+      FROM months
+      LEFT JOIN "AffiliateEarning" e ON 
+        date_trunc('month', e."createdAt") = months.month
+        AND e."affiliateId" = ${affiliateId}
+      LEFT JOIN "AffiliateClick" c ON 
+        date_trunc('month', c."createdAt") = months.month
+        AND c."affiliateId" = ${affiliateId}
+      GROUP BY months.month
+      ORDER BY months.month ASC
     `;
 
-    return NextResponse.json({
+    // Convert BigInt to Number in the response
+    const response = {
       totalEarnings: Number(totalEarnings._sum.amount || 0),
       pendingEarnings: Number(pendingEarnings._sum.amount || 0),
       lastPayout: Number(lastPayout?.amount || 0),
-      monthlyEarnings: monthlyStats.map((stat) => ({
+      monthlyEarnings: monthlyStats.map((stat: any) => ({
         month: stat.month,
         earnings: Number(stat.earnings),
         clicks: Number(stat.clicks),
-        conversions: Number(stat.conversions)
-      }))
-    });
+      })),
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('Earnings error:', error);
+    console.error('Failed to fetch earnings:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch earnings' },
+      { error: 'Failed to fetch earnings' },
       { status: 500 }
     );
   }

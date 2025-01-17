@@ -62,7 +62,4 @@ next-env.d.ts
 
 # Cache directories
 .cache/
-.next/cache/
-
-# Render specific
-.render/ 
+.next/cache/ 

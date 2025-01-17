@@ -5,6 +5,7 @@ import { jwtVerify } from 'jose'
 
 export async function GET() {
   try {
+    // Get user from token
     const cookieStore = cookies()
     const token = cookieStore.get('token')
     
@@ -20,77 +21,82 @@ export async function GET() {
       new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key')
     )
 
-    const affiliateId = payload.id as string
-
-    // Get overall stats
-    const [totalAffiliates, totalEarnings, totalClicks] = await Promise.all([
-      prisma.affiliate.count(),
-      prisma.affiliateEarning.aggregate({
-        where: { status: 'approved' },
-        _sum: { amount: true }
-      }),
-      prisma.affiliateClick.count()
-    ])
-
-    // Get recent activity
-    const recentActivity = await prisma.affiliate.findMany({
-      take: 5,
+    // Get affiliate stats
+    const stats = await prisma.affiliate.findUnique({
+      where: { id: payload.id as string },
       select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
+        _count: {
+          select: {
+            links: true,
+          },
+        },
         clicks: {
-          take: 5,
-          orderBy: { timestamp: 'desc' },
           select: {
-            timestamp: true,
-            ipAddress: true,
-            converted: true
-          }
+            createdAt: true,
+          },
         },
-        earnings: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
+        conversions: {
           select: {
             amount: true,
-            status: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         },
-        trackingConversions: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            amount: true,
-            createdAt: true
-          }
-        }
       },
-      orderBy: { createdAt: 'desc' }
     })
+
+    if (!stats) {
+      return NextResponse.json(
+        { message: 'Stats not found' },
+        { status: 404 }
+      )
+    }
+
+    // Calculate total earnings
+    const totalEarnings = stats.conversions.reduce((sum, conv) => sum + conv.amount, 0)
+    
+    // Calculate conversion rate
+    const conversionRate = stats.clicks.length > 0 
+      ? (stats.conversions.length / stats.clicks.length) * 100 
+      : 0
+
+    // Generate monthly data for chart
+    const monthlyData = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date()
+      date.setMonth(date.getMonth() - i)
+      const month = date.toLocaleString('default', { month: 'short' })
+      
+      const monthClicks = stats.clicks.filter(click => {
+        const clickDate = new Date(click.createdAt)
+        return clickDate.getMonth() === date.getMonth() &&
+               clickDate.getFullYear() === date.getFullYear()
+      }).length
+
+      const monthEarnings = stats.conversions
+        .filter(conv => {
+          const convDate = new Date(conv.createdAt)
+          return convDate.getMonth() === date.getMonth() &&
+                 convDate.getFullYear() === date.getFullYear()
+        })
+        .reduce((sum, conv) => sum + conv.amount, 0)
+
+      return {
+        name: month,
+        clicks: monthClicks,
+        earnings: monthEarnings
+      }
+    }).reverse()
 
     return NextResponse.json({
-      overview: {
-        totalAffiliates,
-        totalEarnings: Number(totalEarnings._sum.amount || 0),
-        totalClicks,
-        conversionRate: totalClicks > 0 
-          ? Number(((totalEarnings._sum.amount || 0) / totalClicks).toFixed(2))
-          : 0
+      stats: {
+        totalClicks: stats.clicks.length,
+        totalEarnings,
+        conversionRate: parseFloat(conversionRate.toFixed(2)),
+        activeLinks: stats._count.links
       },
-      recentActivity: recentActivity.map(affiliate => ({
-        id: affiliate.id,
-        name: affiliate.name,
-        email: affiliate.email,
-        createdAt: affiliate.createdAt,
-        recentClicks: affiliate.clicks,
-        recentEarnings: affiliate.earnings,
-        recentConversions: affiliate.trackingConversions
-      }))
+      chartData: monthlyData
     })
   } catch (error) {
-    console.error('Error fetching stats:', error)
+    console.error('Stats error:', error)
     return NextResponse.json(
       { message: 'Failed to fetch stats' },
       { status: 500 }

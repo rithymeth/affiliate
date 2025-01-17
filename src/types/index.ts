@@ -1,14 +1,31 @@
-export interface User {
-  id: string
-  name: string
-  email: string
+export interface AffiliateClick {
+  id: string;
+  affiliateId: string;
+  timestamp: Date;
+  ipAddress: string;
+  userAgent: string;
+  referrer: string;
+  converted: boolean;
 }
 
-export interface AuthContextType {
-  user: User | null
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-  loading: boolean
+export interface AffiliateVisit {
+  id: string;
+  affiliateId: string;
+  timestamp: Date;
+  ipAddress: string;
+  userAgent: string;
+  referrer: string;
+  duration: number;
+  pageViews: number;
 }
 
-export * from './affiliate' 
+export interface AffiliateStats {
+  totalClicks: number;
+  totalVisits: number;
+  conversionRate: number;
+  dailyStats: {
+    date: string;
+    clicks: number;
+    visits: number;
+  }[];
+} 
