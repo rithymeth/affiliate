@@ -4,6 +4,17 @@ services:
     env: node
     buildCommand: npm install && npm run build
     startCommand: npm start
+    buildFilter:
+      paths:
+        - src/**
+        - public/**
+        - package.json
+        - next.config.js
+        - prisma/**
+    disk:
+      name: build-cache
+      mountPath: /.next/cache
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
