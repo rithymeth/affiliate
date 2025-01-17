@@ -101,4 +101,43 @@ export interface AffiliateWithStats extends Omit<Affiliate, 'password'> {
     clicks: number
     earnings: number
   }
+}
+
+export interface StatsOverview {
+  totalAffiliates: number
+  totalEarnings: number
+  totalClicks: number
+  conversionRate: number
+}
+
+export interface RecentClick {
+  timestamp: Date
+  ipAddress: string
+  converted: boolean
+}
+
+export interface RecentEarning {
+  amount: number
+  status: string
+  createdAt: Date
+}
+
+export interface RecentConversion {
+  amount: number
+  createdAt: Date
+}
+
+export interface AffiliateActivity {
+  id: string
+  name: string
+  email: string
+  createdAt: Date
+  recentClicks: RecentClick[]
+  recentEarnings: RecentEarning[]
+  recentConversions: RecentConversion[]
+}
+
+export interface StatsResponse {
+  overview: StatsOverview
+  recentActivity: AffiliateActivity[]
 } 
